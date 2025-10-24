@@ -1,0 +1,91 @@
+local NotificationSettings = {
+    EnableImage  = "14562122532",
+    DisableImage = "17829927053",
+    CheckImage   = "16210234931",
+    EnableSound  = "14562122532",
+    DisableSound = "17582299860",
+    CheckSound   = "18595195017",
+    Time         = 4,
+    Volume       = 1
+}
+
+local function ShowNotification(title, content, image, soundId)
+    Rayfield:Notify({
+        Title = title or "通知",
+        Content = content or "",
+        Duration = NotificationSettings.Time,
+        Image = (image or NotificationSettings.CheckImage)
+    })
+    if soundId then
+        local sound = Instance.new("Sound")
+        sound.Parent = SoundService
+        sound.Volume = NotificationSettings.Volume
+        sound.SoundId = soundId
+        sound:Play()
+        sound.Ended:Connect(function() sound:Destroy() end)
+    end
+end
+
+local function Notify(title, text, mode)
+    local modes = {
+        Yes   = { img = NotificationSettings.EnableImage, sound = NotificationSettings.EnableSound },
+        No    = { img = NotificationSettings.DisableImage, sound = NotificationSettings.DisableSound },
+        Check = { img = NotificationSettings.CheckImage,  sound = NotificationSettings.CheckSound }
+    }
+    local data = modes[mode] or {}
+    ShowNotification(title, text, data.img, data.sound)
+end
+
+local function GenerateKey(length)
+    local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    local key = {}
+    for i = 1, length do
+        local idx = math.random(1, #chars)
+        key[#key+1] = string.sub(chars, idx, idx)
+    end
+    return table.concat(key)
+end
+
+math.randomseed(tick() * 1000 + os.time())
+
+local SaveFile = "VenaHub_KeyData.json"
+local Data = {}
+local success_read, raw = pcall(function()
+    if isfile and isfile(SaveFile) then
+        return readfile(SaveFile)
+    end
+    return nil
+end)
+
+if success_read and raw and raw ~= "" then
+    local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+    if ok and type(decoded) == "table" then
+        Data = decoded
+    else
+        Data = {}
+    end
+else
+    Data = {}
+end
+
+local function IsExpired(savedTime)
+    if not savedTime then return true end
+    local now = os.time()
+    return (now - savedTime) >= 86400
+end
+
+if not Data.Key or IsExpired(Data.Timestamp) then
+    Data.Key = GenerateKey(50)
+    Data.Timestamp = os.time()
+    pcall(function()
+        if writefile then
+            writefile(SaveFile, HttpService:JSONEncode(Data))
+        end
+    end)
+end
+
+pcall(function()
+    if setclipboard then
+        setclipboard(Data.Key)
+    end
+end)
